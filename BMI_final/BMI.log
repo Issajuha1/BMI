@@ -1,0 +1,5 @@
+0	1	mikroCPIC1618.exe -MSF -DBG -pP16F877A -DL -O11111114 -fo8 -N"D:\project\BMI_final_pinpoint_accuracy\BMI.mcppi" -SP"D:\microc\mikroC PRO for PIC\Defs\" -SP"D:\microc\mikroC PRO for PIC\Uses\P16\" -SP"D:\project\BMI_final_pinpoint_accuracy\" -IP"D:\microc\mikroC PRO for PIC\Uses\P16\" "BMI.c" "__Lib_Math.mcl" "__Lib_MathDouble.mcl" "__Lib_System.mcl" "__Lib_Delays.mcl" "__Lib_CType.mcl" "__Lib_CString.mcl" "__Lib_Conversions.mcl" "__Lib_Keypad4x4.mcl" "__Lib_LcdConsts.mcl" "__Lib_Lcd.mcl"	 
+hint: 0	1139	Available RAM: 352 [bytes], Available ROM: 8192 [bytes]	 
+diagnostics: 0	122	Compilation Started	BMI.c
+error: 102	307	Illegal typecast 'can not convert to pointer' ''	BMI.c
+error: 0	102	Finished (with errors): 04 Jun 2023, 13:22:34	BMI.mcppi
