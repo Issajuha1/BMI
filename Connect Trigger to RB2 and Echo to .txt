@@ -1,0 +1,382 @@
+//Connect Trigger to RC2 and Echo to RC1
+unsigned char mysevenseg[10]={0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F};
+
+unsigned int T1overflow;
+unsigned long T1counts;
+unsigned long T1time;
+unsigned long Distance;
+unsigned int Dcntr;
+void usDelay(unsigned int);
+void msDelay(unsigned int);
+
+unsigned char cntr=0;
+
+void init_sonar(void);
+void read_sonar(void);
+
+
+void interrupt(void){
+ if(INTCON&0x04){// will get here every 1ms
+    TMR0=248;
+    Dcntr++;
+    if(Dcntr==500){//after 500 ms
+      Dcntr=0;
+     read_sonar();
+     //cntr++;
+    }
+  INTCON = INTCON & 0xFB; //clear T0IF
+}
+ if(PIR1&0x04){//CCP1 interrupt
+
+ PIR1=PIR1&0xFB;
+ }
+ if(PIR1&0x01){//TMR1 ovwerflow
+
+   T1overflow++;
+
+   PIR1=PIR1&0xFE;
+ }
+
+ if(INTCON&0x02){//External Interrupt
+
+
+   INTCON=INTCON&0xFD;
+   }
+
+
+ }
+
+void main() {
+/ MAKE PORT B INPUT FOR KEYPAD
+TRISB=0XFF
+//(TRISC =0x00;//PORTC for testing (MAKE IT INPUT AND OUTPUT) FF)PORT C FOR SENSOR 
+//PORTC=0x00;(DELETE)
+//PORTD FOR LCD D4 D5 D6 D7 OUTPUT RD2=E RD0=RS RD1=R/W
+//TRISD=0x00;(MAKE 
+PORTD=0x00;
+ADCON1=0x06;//PORTA Digital
+TRISA=0x00;
+
+
+TMR0=248;
+//HL=1;// Capture on rising for the first time
+
+
+CCP1CON=0x00;// Disable CCP. Capture on rising for the first time.  Capture on Rising: 0x05, Capture on Falling: 0x04
+
+
+OPTION_REG = 0x87;//Fosc/4 with 256 prescaler => incremetn every 0.5us*256=128us ==> overflow 8count*128us=1ms to overflow
+INTCON=0xF0;//enable TMR0 overflow, TMR1 overflow, External interrupts and peripheral interrupts;
+//PIE1=PIE1|0x04;// Enable CCP1 interrupt
+init_sonar();
+
+  while(1){
+(CODE TO DESLPLAY LCD FROM LCD LIBRARY)
+      PORTA=0x08;
+      PORTD=mysevenseg[Distance/100];
+      msDelay(5);
+      PORTA=0x04;
+      PORTD=mysevenseg[(Distance/10)%10];
+      msDelay(5);
+      PORTA=0x02;
+      PORTD=mysevenseg[Distance%10];
+      msDelay(5);
+
+  }
+
+}
+
+
+void read_sonar(void){
+
+    T1overflow=0;
+    TMR1H=0;
+    TMR1L=0;
+
+   MAKE THIS PORT C PORTC=0x04;//Trigger the ultrasonic sensor (RB2 connected to trigger)(make RC2 )
+    usDelay(10);//keep trigger for 10uS
+    PORTC=0x00;//Remove trigger
+    while(!(PORTB&0x02));
+    T1CON=0x19;//TMR1 ON,  Fosc/4 (inc 1uS) with 1:2 prescaler (TMR1 overflow after 0xFFFF counts ==65536)==> 65.536ms
+    while(PORTC&0x02);
+    T1CON=0x18;//TMR1 OFF,  Fosc/4 (inc 1uS) with 1:1 prescaler (TMR1 overflow after 0xFFFF counts ==65536)==> 65.536ms
+    T1counts=((TMR1H<<8)|TMR1L)+(T1overflow*65536);
+       //if(TMR1L>100) PORTC=0xFF;
+       T1time=T1counts;//in microseconds
+       Distance=((T1time*34)/(1000))/2; //in cm, shift left twice to divide by 2
+       //range=high level time(usec)*velocity(340m/sec)/2 >> range=(time*0.034cm/usec)/2
+       //time is in usec and distance is in cm so 340m/sec >> 0.034cm/usec
+       //divide by 2 since the travelled distance is twice that of the range from the object leaving the sensor then returning when hitting an object)
+}
+
+void init_sonar(void){
+   T1overflow=0;
+    T1counts=0;
+    T1time=0;
+    Distance=0;
+    TMR1H=0;
+    TMR1L=0;
+    TRISC=0x02; //RB2 for trigger, RB1 for echo
+   PORT C PORTC=0x00;
+    INTCON=INTCON|0xC0;//GIE and PIE
+    PIE1=PIE1|0x01;// Enable TMR1 Overflow interrupt
+
+    T1CON=0x18;//TMR1 OFF,  Fosc/4 (inc 1uS) with 1:2 prescaler (TMR1 overflow after 0xFFFF counts ==65536)==> 65.536ms
+}
+
+void usDelay(unsigned int usCnt){
+    unsigned int us=0;
+
+    for(us=0;us<usCnt;us++){
+      asm NOP;//0.5 uS
+      asm NOP;//0.5uS
+    }
+
+}
+void msDelay(unsigned int msCnt){
+    unsigned int ms=0;
+    unsigned int cc=0;
+    for(ms=0;ms<(msCnt);ms++){
+    for(cc=0;cc<155;cc++);//1ms
+    }
+
+}
+
+
+-----------------------------------------------------------------------------------
+
+unsigned char cntr;
+unsigned int tick, Dcntr;
+void myDelay(void);
+void mymsDelay(unsigned int);
+void interrupt(void){
+      if(INTCON&0x04){//TMR0 Overflow ISR, every 1ms
+      TMR0=248;// 8 counts to overflow
+      tick++;
+      Dcntr++;
+      if(tick==500){
+       PORTD=~PORTD;
+       tick=0;
+       if(cntr>0){
+        PORTB=~PORTB;
+        cntr--;
+       }
+      
+      }
+      
+      
+      INTCON = INTCON & 0xFB;//clear T0IF
+      }
+      
+      if(INTCON&0X02){//External Interrupt ISR
+        //Blink LEDS
+     cntr=10;
+
+     INTCON = INTCON & 0xFD;// Clear INTF
+      }
+
+}
+
+void main() {
+    //Initializations
+    unsigned char k;
+     tick=0;
+     Dcntr=0;
+    //PORT Directions
+    // Enable Interrupt
+    TRISD=0x00;
+    TRISC = 0x00;//PORTC Output
+    TRISB = 0x01;//PORTB1-7 Output
+    OPTION_REG = 0x87;//Use the Fosc/4, with a 256 prescaler
+    //Fosc=8MHz, T(inc TMR0) = (1/2MHz) *256 = 128uS per increment
+    //if TMR0 start counting from 248 (i.e. 8 counts before overflow)
+    //Toverflow=8*128uS=1ms
+    TMR0=248;
+    INTCON = INTCON | 0xB0;//GIE, INTE, T0IE
+    PORTB=0x00;
+    PORTC=0x01;//First LED ON
+    PORTD=0x00;
+
+
+    while(1){
+       //Shift LEDs Left
+       for(k=0; k<7; k++){
+         mymsDelay(300);
+         PORTC = PORTC << 1;
+         }
+       //Shift LEDs Right
+       for(k=0; k<7; k++){
+         mymsDelay(600);
+         PORTC = PORTC >> 1;
+         }
+
+    }
+
+
+}
+
+void myDelay(void){
+unsigned int j;// two SRAM memory locations == 16-bit
+unsigned char i;//one memory location == 8-bit
+    for(i=0;i<50;i++){
+      for(j=0;j<2000;j++){
+        i=i;
+        j=j;
+      }
+    }
+
+}
+void mymsDelay(unsigned int d){
+   Dcntr=0;
+   while(Dcntr<d);
+}
+--------------------------------------------------------------------
+
+//LCD
+sbit LCD_RS at RD4_bit;
+sbit LCD_EN at RD5_bit;
+sbit LCD_D4 at RD0_bit;
+sbit LCD_D5 at RD1_bit;
+sbit LCD_D6 at RD2_bit;
+sbit LCD_D7 at RD3_bit;
+sbit LCD_RS_Direction at TRISD4_bit;
+sbit LCD_EN_Direction at TRISD5_bit;
+sbit LCD_D4_Direction at TRISD0_bit;
+sbit LCD_D5_Direction at TRISD1_bit;
+sbit LCD_D6_Direction at TRISD2_bit;
+sbit LCD_D7_Direction at TRISD3_bit;
+
+
+// Variables:
+unsigned int distance1, distance2, Distance1, Distance2, result;
+unsigned int garbage_height = 27;  //Garbage height = 27 cm
+unsigned long pulse_width;
+unsigned long Time;
+unsigned int T1overflow;
+unsigned char dst[2];
+void delay_ms(unsigned int msCnt);
+void delay_us(unsigned int usCnt);
+unsigned int measure_distance1(void) {  //sensor 1 used to open the lid using servo [RB6 = TRIGGER, RB7 = ECHO ]
+pulse_width = 0;         //Initializing the pulse_width, pulse_width is the Duration of the echo pulse in microseconds
+T1overflow = 0;
+TMR1L = 0X00;
+TMR1H = 0X00;
+PORTB = PORTB | 0x40;    //TRIGGER ON
+delay_us(10);
+PORTB = PORTB & 0xBF;    //TRIGGER OFF
+while(!(PORTB & 0x80));  //WHILE ECHO != 1
+T1CON=0x19;              //START THE TIMER
+while(PORTB & 0x80);     //WHILE ECHO = 1
+T1CON=0x18;              //STOP THE TIMER
+pulse_width = ((TMR1H<<8)|TMR1L)+(T1overflow*65536); //READ THE TIMER
+Time = pulse_width;
+distance1 =  ((Time*34)/(1000))/2;                    //TO GET THE DISTANCE IN CM
+return distance1;
+}
+
+unsigned int measure_distanc2(void) {  //sensor 2 used to Display the Level of Garbage [RB1 = TRIGGER, RB3 = ECHO ]
+pulse_width = 0;         //Initializing the pulse_width, pulse_width is the Duration of the echo pulse in microseconds
+T1overflow = 0;
+TMR1L = 0X00;
+TMR1H = 0X00;
+PORTB = PORTB | 0x02;    //TRIGGER ON
+delay_us(10);
+PORTB = PORTB & 0xFD;    //TRIGGER OFF
+while(!(PORTB & 0x08));  //WHILE ECHO != 1
+T1CON=0x19;              //START THE TIMER
+while(PORTB & 0x08);     //WHILE ECHO = 1
+T1CON=0x18;              //STOP THE TIMER
+pulse_width = ((TMR1H<<8)|TMR1L)+(T1overflow*65536); //READ THE TIMER
+Time = pulse_width;
+distance2 =  ((Time*34)/(1000))/2;                    //TO GET THE DISTANCE IN CM
+return distance2;
+}
+
+//SERVO FUNCTIONS
+
+void Rotation0() {
+unsigned int i;
+for(i=0;i<50;i++) {
+PORTB = PORTB | 0X04;
+Delay_us(800); // pulse of 800us
+PORTB = PORTB & 0xFB;
+Delay_us(19200);
+}
+}
+
+void Rotation1() {
+unsigned int i;
+for(i=0;i<50;i++) {
+PORTB = PORTB | 0x04;
+Delay_us(2200); // pulse of 2200us
+PORTB = PORTB & 0xFB;
+Delay_us(17800);
+ }
+}
+
+// Main function
+void main() {     //ECHO is INPUT, TRIGGER is OUTPUT
+TRISB = 0x88;     // RB0 = RS for LCD, RB1 = TRIGGER_SENSOR2, RB2 = Servo_PIN, RB3 = ECHO_SENSOR2, RB6 = TRIGGER_SESNOR1, RB7 = ECHO_SENSOR1
+TRISC = 0x00;     // RC2 for BUZZER, RC4-RC7 for D2-D5 of LCD  PORTC output
+TRISD = 0x00;     //RD2-RD7 for LCD pins, PORTD Output
+PORTB = 0x00;
+PORTC = 0x00;
+PORTD = 0X00;
+
+TMR1H=0;
+TMR1L=0;
+Lcd_Cmd(_LCD_CLEAR);
+Lcd_Cmd(_LCD_CURSOR_OFF);
+Lcd_out(1,1,"SMART");
+delay_ms(1000);
+Lcd_out(2,1,"DUSTBIN");
+delay_ms(1000);
+while(1) {
+Distance1 = measure_distance1();
+delay_ms(500);
+if(Distance1 < 30) {
+Rotation0();                      // OPENS THE LID
+Delay_ms(2000);
+Rotation1();                      // CLOSES THE LID
+Delay_ms(4000);
+ }
+else {
+Distance2 = measure_distance2();
+delay_ms(500);
+result = ((garbage_height - Distance2) / garbage_height) * 100 ;
+if(Distance2 == garbage_height) {
+Lcd_Cmd(_LCD_CLEAR);
+Lcd_Cmd(_LCD_CURSOR_OFF);
+Lcd_out(1,1,"FULL");              // DISPLAYS THAT THE GARBAGE IS FULL
+delay_ms(1000);
+PORTC = PORTC | 0x04;
+}
+else {
+PORTC = PORTC & 0xFB;
+Lcd_Cmd(_LCD_CLEAR);
+Lcd_Cmd(_LCD_CURSOR_OFF);
+Lcd_out(1,1,"Distance = ");
+delay_ms(1000);
+ByteToStr(result,dst);
+Lcd_out(1,13,dst);                // WILL PRINT THE DUSTBIN PERCENTAGE
+Lcd_Cmd(_LCD_CURSOR_OFF);
+delay_ms(1000);
+Lcd_Cmd(_LCD_CLEAR);
+}
+}
+}
+}
+void delay_us(unsigned int usCnt){
+    unsigned int us=0;
+  for(us=0;us<usCnt;us++){
+    asm NOP;//0.5 uS
+    asm NOP;//0.5uS
+  }
+}
+void delay_ms(unsigned int msCnt){
+    unsigned int ms=0;
+    unsigned int cc=0;
+    for(ms=0;ms<(msCnt);ms++){
+    for(cc=0;cc<155;cc++);//1ms
+    }
+}
